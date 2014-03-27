@@ -10,11 +10,97 @@
 
 #define IDX2C(i,j,ld) (((j)*(ld))+(i))
 
-static __inline__ void modify (cublasHandle_t handle, float *m, int ldm, int
-                               n, int p, int q, float alpha, float beta)
+float* gen_mat(int m, int n, float start, float inc)
 {
-    cublasSscal (handle, n-p, &alpha, &m[IDX2C(p,q,ldm)], ldm);
-    cublasSscal (handle, ldm-p, &beta, &m[IDX2C(p,q,ldm)], 1);
+    float *res = malloc(m * n * sizeof(float));
+    float acc = start;
+
+    if (res == NULL)
+        return NULL;
+
+    for (int j = 0; j <= n; ++j) {
+        for (int i = 0; i <= m; ++i) {
+            res[IDX2C(i, j, m)] = acc;
+            acc += inc;
+        }
+    }
+
+    return res;
+}
+
+void bench_matrix_mul(int n)
+{
+    float *b, *devPtrB;
+    float *a, *devPtrA;
+    float *devPtrC;
+    float alpha = 1.0f;
+    float beta  = 0.0f;
+
+    a = gen_mat(n, n, 0.0, 0.5);
+    if (a == NULL) {
+        printf("host memory allocation failed");
+        return EXIT_FAILURE;
+    }
+
+    b = gen_mat(n, n, 4.25, 0.25);
+    if (b == NULL) {
+        printf("host memory allocation failed");
+        return EXIT_FAILURE;
+    }
+
+    cudaStat = cudaMalloc ((void**)&devPtrA, n * n * sizeof(*a));
+    if (cudaStat != cudaSuccess) {
+        printf("device memory allocation failed for A");
+        return EXIT_FAILURE;
+    }
+
+    cudaStat = cudaMalloc ((void**)&devPtrB, n * n * sizeof(*b));
+    if (cudaStat != cudaSuccess) {
+        printf("device memory allocation failed for B");
+        return EXIT_FAILURE;
+    }
+
+    cudaStat = cudaMalloc ((void**)&devPtrC, n * n * sizeof(float));
+    if (cudaStat != cudaSuccess) {
+        printf("device memory allocation failed for C");
+        return EXIT_FAILURE;
+    }
+
+    stat = cublasSetMatrix (n, n, sizeof(*a), a, n, devPtrA, n);
+    if (stat != CUBLAS_STATUS_SUCCESS) {
+        printf("data download failed for matrix A");
+        cudaFree (devPtrA);
+        cudaFree (devPtrB);
+        cudaFree (devPtrC);
+        cublasDestroy(handle);
+        return EXIT_FAILURE;
+    }
+
+    stat = cublasSetMatrix (n, n, sizeof(*b), b, n, devPtrB, n);
+    if (stat != CUBLAS_STATUS_SUCCESS) {
+        printf("data download failed for matrix B");
+        cudaFree (devPtrA);
+        cudaFree (devPtrB);
+        cudaFree (devPtrC);
+        cublasDestroy(handle);
+        return EXIT_FAILURE;
+    }
+
+    // measure time
+    stat = cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, n, n, n, 
+                       &alpha, devPtrA, n, devPtrB, n, &beta, devPtrC, n);
+    // measure time
+    if (stat != CUBLAS_STATUS_SUCCESS) {
+        printf("Error with cublasSgemm");
+    }
+
+    // getmatrix?
+
+    free(a);
+    free(b);
+    cudaFree (devPtrA);
+    cudaFree (devPtrB);
+    cudaFree (devPtrC);
 }
 
 int main (void)
@@ -23,61 +109,26 @@ int main (void)
     cublasStatus_t stat;
     cublasHandle_t handle;
     int i, j;
-    float* devPtrA;
-    float* a = 0;
+    float *b, *devPtrB;
+    float *a, *devPtrA;
 
     if (cudaSetDevice(0) != cudaSuccess) {
         fprintf(stderr, "Failed to set CUDA device\n");
         return EXIT_FAILURE;
     }
+
     cudaDeviceSynchronize();
     cudaThreadSynchronize();
 
-    a = (float *) malloc(N * N * sizeof(*a));
-    if (a == NULL) {
-        printf ("host memory allocation failed");
-        return EXIT_FAILURE;
-    }
-
-    // generate matrix
-    for (j = 0; j < N; j++) {
-        for (i = 0; i < M; i++) {
-           a[IDX2C(i,j,M)] = (float)(i * M + j + 1);
-       }
-    }
-    cudaStat = cudaMalloc ((void**)&devPtrA, M*N*sizeof(*a));
-    if (cudaStat != cudaSuccess) {
-        printf ("device memory allocation failed");
-        return EXIT_FAILURE;
-    }
     stat = cublasCreate(&handle);
     if (stat != CUBLAS_STATUS_SUCCESS) {
         printf ("CUBLAS initialization failed\n");
         return EXIT_FAILURE;
     }
-    stat = cublasSetMatrix (M, N, sizeof(*a), a, M, devPtrA, M);
-    if (stat != CUBLAS_STATUS_SUCCESS) {
-        printf ("data download failed");
-        cudaFree (devPtrA);
-        cublasDestroy(handle);
-        return EXIT_FAILURE;
-    }
-    modify (handle, devPtrA, M, N, 1, 2, 16.0f, 12.0f);
-    stat = cublasGetMatrix (M, N, sizeof(*a), devPtrA, M, a, M);
-    if (stat != CUBLAS_STATUS_SUCCESS) {
-        printf ("data upload failed");
-        cudaFree (devPtrA);
-        cublasDestroy(handle);
-        return EXIT_FAILURE;
-    }
-    cudaFree (devPtrA);
+
+    bench_matrix_mul(1200);
+
     cublasDestroy(handle);
-    for (j = 0; j < N; j++) {
-        for (i = 0; i < M; i++) {
-            printf ("%7.0f", a[IDX2C(i,j,M)]);
-        }
-        printf ("\n");
-    }
-    free(a);
+
     return EXIT_SUCCESS;
 }
