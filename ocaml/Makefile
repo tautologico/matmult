@@ -1,5 +1,5 @@
 all:
-	ocamlfind ocamlopt -thread -linkpkg -package core,core_bench -o matmult matmult.ml
+	ocamlfind ocamlopt -inline 2 -S -linkpkg -package unix,bigarray -o matmult matmult.ml
 
 clean:
 	rm -f matmult

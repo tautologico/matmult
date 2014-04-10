@@ -1,5 +1,3 @@
-(* open Core.Std *)
-open Core_bench.Std
 
 open Bigarray
 let dim1 = Array2.dim1
@@ -43,6 +41,8 @@ let mat_mult m1 m2 =
 
 let mat_mult_flops m1 m2 = 2.0 *. (float m1.m) *. (float m1.n) *. (float m2.n)
 
+let b_mat_mult_flops m1 m2 = 2.0 *. (float (dim1 m1)) *. (float (dim2 m1)) *. (float (dim2 m2))
+
 let b_mat_mult m1 m2 =
   if (dim2 m1) <> (dim1 m2) then
     failwith "Incompatible matrix dimensions (b_mat_mult)"
@@ -73,19 +73,25 @@ let gen_b_mat_1 m n start inc =
   done;
   res
 
-let bench_mat_mult m1 m2 =
-  mat_mult m1 m2
-
-let tests size =
-  let test name f = Bench.Test.create f ~name in
+let bench_mat_mult size =
   let m1 = gen_mat_1 size size 0.0 0.01 in
-  let b1 = gen_b_mat_1 size size 0.0 0.01 in
   let m2 = gen_mat_1 size size 3.2 0.02 in
-  let b2 = gen_b_mat_1 size size 3.2 0.02 in
-  [
-    test "array gemm"    (fun () -> ignore (mat_mult m1 m2));
-    test "bigarray gemm" (fun () -> ignore (b_mat_mult b1 b2))
-  ]
+  let start_time = Unix.gettimeofday () in
+  let m3 = mat_mult m1 m2 in
+  let end_time = Unix.gettimeofday () in
+  let elapsed = end_time -. start_time in
+  let flops_sec = (mat_mult_flops m1 m2) /. (elapsed *. 1e9) in
+  Printf.printf "*** Array gemm - %4.2f s - %5.3f GFLOPS/s \n" elapsed flops_sec
+
+let bench_b_mat_mult size =
+  let m1 = gen_b_mat_1 size size 0.0 0.01 in
+  let m2 = gen_b_mat_1 size size 3.2 0.02 in
+  let start_time = Unix.gettimeofday () in
+  let m3 = b_mat_mult m1 m2 in
+  let end_time = Unix.gettimeofday () in
+  let elapsed = end_time -. start_time in
+  let flops_sec = (b_mat_mult_flops m1 m2) /. (elapsed *. 1e9) in
+  Printf.printf "*** Bigarray gemm - %4.2f s - %5.3f GFLOPS/s \n" elapsed flops_sec
 
 let m1 = { m = 2; n = 2; elts = [| 1.0; 2.0;
                                    3.0; 4.0 |]}
@@ -94,6 +100,5 @@ let m2 = { m = 2; n = 2; elts = [| 3.0; 1.0;
                                    5.0; 2.0 |]}
 
 let () =
-  tests 1200
-  |> Bench.make_command
-  |> Core.Std.Command.run
+  bench_mat_mult 1200;
+  bench_b_mat_mult 1200
