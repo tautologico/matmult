@@ -1,7 +1,7 @@
 
 extern crate time; 
 
-use std::vec_ng::Vec;
+use std::vec::Vec;
 use std::iter::range_step;
 use std::unstable::simd::f64x2;
 
