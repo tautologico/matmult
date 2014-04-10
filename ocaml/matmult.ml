@@ -1,5 +1,9 @@
-open Core.Std
+(* open Core.Std *)
 open Core_bench.Std
+
+open Bigarray
+let dim1 = Array2.dim1
+let dim2 = Array2.dim2
 
 type matrix = {
   m:    int;
@@ -39,20 +43,48 @@ let mat_mult m1 m2 =
 
 let mat_mult_flops m1 m2 = 2.0 *. (float m1.m) *. (float m1.n) *. (float m2.n)
 
+let b_mat_mult m1 m2 =
+  if (dim2 m1) <> (dim1 m2) then
+    failwith "Incompatible matrix dimensions (b_mat_mult)"
+  else
+    let res = Array2.create float64 c_layout (dim1 m1) (dim2 m2) in
+    for i = 0 to (dim1 res) - 1 do
+      for j = 0 to (dim2 res) - 1 do
+        for p = 0 to (dim2 m1) - 1 do
+          res.{i,j} <- res.{i,j} +. m1.{i,p} *. m2.{p,j}
+        done
+      done
+    done;
+    res
+
 let gen_mat_1 m n start inc =
   let res = zero m n in
   Array.iteri (fun i _ -> res.elts.(i) <- start +. (float_of_int i) *. inc) res.elts;
   res
 
-let bench_mat_mult size =
-  let m1 = gen_mat_1 size size 0.0 0.01 in
-  let m2 = gen_mat_1 size size 3.2 0.02 in
+let gen_b_mat_1 m n start inc =
+  let res = Array2.create float64 c_layout m n in
+  let acc = ref start in
+  for i = 0 to (dim1 res) - 1 do
+    for j = 0 to (dim2 res) - 1 do
+      res.{i,j} <- !acc;
+      acc := !acc +. inc
+    done
+  done;
+  res
+
+let bench_mat_mult m1 m2 =
   mat_mult m1 m2
 
 let tests size =
   let test name f = Bench.Test.create f ~name in
+  let m1 = gen_mat_1 size size 0.0 0.01 in
+  let b1 = gen_b_mat_1 size size 0.0 0.01 in
+  let m2 = gen_mat_1 size size 3.2 0.02 in
+  let b2 = gen_b_mat_1 size size 3.2 0.02 in
   [
-    test "array mat_mult"   (fun () -> ignore (bench_mat_mult size))
+    test "array gemm"    (fun () -> ignore (mat_mult m1 m2));
+    test "bigarray gemm" (fun () -> ignore (b_mat_mult b1 b2))
   ]
 
 let m1 = { m = 2; n = 2; elts = [| 1.0; 2.0;
@@ -64,4 +96,4 @@ let m2 = { m = 2; n = 2; elts = [| 3.0; 1.0;
 let () =
   tests 1200
   |> Bench.make_command
-  |> Command.run
+  |> Core.Std.Command.run
