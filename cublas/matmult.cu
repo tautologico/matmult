@@ -10,16 +10,22 @@
 
 #define IDX2C(i,j,ld) (((j)*(ld))+(i))
 
+// globals
+cudaError_t cudaStat;
+cublasStatus_t stat;
+cublasHandle_t handle;
+
+
 float* gen_mat(int m, int n, float start, float inc)
 {
-    float *res = malloc(m * n * sizeof(float));
+    float *res = (float*) malloc(m * n * sizeof(float));
     float acc = start;
 
     if (res == NULL)
         return NULL;
 
-    for (int j = 0; j <= n; ++j) {
-        for (int i = 0; i <= m; ++i) {
+    for (int j = 0; j < n; ++j) {
+        for (int i = 0; i < m; ++i) {
             res[IDX2C(i, j, m)] = acc;
             acc += inc;
         }
@@ -28,7 +34,7 @@ float* gen_mat(int m, int n, float start, float inc)
     return res;
 }
 
-void bench_matrix_mul(int n)
+int bench_matrix_mul(int n)
 {
     float *b, *devPtrB;
     float *a, *devPtrA;
@@ -87,7 +93,7 @@ void bench_matrix_mul(int n)
     }
 
     // measure time
-    stat = cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, n, n, n, 
+    stat = cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, n, n, n,
                        &alpha, devPtrA, n, devPtrB, n, &beta, devPtrC, n);
     // measure time
     if (stat != CUBLAS_STATUS_SUCCESS) {
@@ -101,17 +107,12 @@ void bench_matrix_mul(int n)
     cudaFree (devPtrA);
     cudaFree (devPtrB);
     cudaFree (devPtrC);
+
+    return EXIT_SUCCESS;
 }
 
 int main (void)
 {
-    cudaError_t cudaStat;
-    cublasStatus_t stat;
-    cublasHandle_t handle;
-    int i, j;
-    float *b, *devPtrB;
-    float *a, *devPtrA;
-
     if (cudaSetDevice(0) != cudaSuccess) {
         fprintf(stderr, "Failed to set CUDA device\n");
         return EXIT_FAILURE;
