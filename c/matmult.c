@@ -114,14 +114,24 @@ double bench_mat_mult(int size)
   return elapsed;
 }
 
-int main(void)
+int main(int argc, char **argv)
 {
   int N;
   double t;
   double flops;
 
-  printf("N \t time (s) \t GFLOPS/s \n");
-  for (N = 100; N <= 1200; N += 40) {
+  int start = 200;
+  int end = 1200;
+  int inc = 40;
+
+  if (argc >= 4) {
+      start = atoi(argv[1]);
+      inc = atoi(argv[2]);
+      end = atoi(argv[3]);
+  }
+
+  printf("N \t time \t GFLOPS/s \n");
+  for (N = start; N <= end; N += inc) {
     double t = bench_mat_mult(N);
     double flops = mat_mult_flops(N);
     printf("%d \t %5.3f \t %5.3f \n", N, t, (flops * 1e-9) / t);

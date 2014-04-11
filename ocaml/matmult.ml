@@ -93,27 +93,31 @@ let bench_b_mat_mult size =
   let flops_sec = (b_mat_mult_flops m1 m2) /. (elapsed *. 1e9) in
   (elapsed, flops_sec)
 
-let bench_sizes low high inc f =
+let bench_sizes low inc high f =
   let rec loop n =
     if n > high then ()
     else
       let elapsed, gflops = f n in
-      Printf.printf "%d \t %5.3f \t %5.3f" n elapsed gflops;
+      Printf.printf "%d \t %5.3f \t %5.3f \n" n elapsed gflops;
+      flush stdout;
       loop (n + inc)
   in
     loop low
 
-let m1 = { m = 2; n = 2; elts = [| 1.0; 2.0;
-                                   3.0; 4.0 |]}
-
-let m2 = { m = 2; n = 2; elts = [| 3.0; 1.0;
-                                   5.0; 2.0 |]}
+let get_arg_opt i default = 
+  if i < Array.length Sys.argv then
+    int_of_string Sys.argv.(i)
+  else
+    default
 
 let () =
+  let low = get_arg_opt 1 200 in
+  let inc = get_arg_opt 2 40 in
+  let hi  = get_arg_opt 3 1200 in
   Printf.printf "*** Array gemm\n";
-  Printf.printf "N \t time (s) \t GFLOPS/s\n";
-  bench_sizes 100 1200 40 bench_mat_mult;
+  Printf.printf "N \t time \t GFLOPS/s\n";
+  bench_sizes low inc hi bench_mat_mult;
 
-  Printf.printf "\n *** Bigarray gemm\n";
-  Printf.printf "N \t time (s) \t GFLOPS/s\n";
-  bench_sizes 100 1200 40 bench_b_mat_mult
+  Printf.printf "\n*** Bigarray gemm\n";
+  Printf.printf "N \t time \t GFLOPS/s\n";
+  bench_sizes low inc hi bench_b_mat_mult
