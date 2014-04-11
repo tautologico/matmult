@@ -10,6 +10,14 @@ typedef struct {
   double *elts;
 } Matrix;
 
+double get_time()
+{
+  struct timeval tv;
+
+  gettimeofday(&tv, NULL);
+  return ((double) tv.tv_sec) + ((double) tv.tv_usec) * 1e-6;
+}
+
 Matrix* create_matrix(int m, int n)
 {
   Matrix *res;
@@ -78,22 +86,26 @@ Matrix* gen_mat_1(int m, int n, double start, double inc)
   return res;
 }
 
+double mat_mult_flops(int size)
+{
+  double dsize = (double) size;
+  return 2.0 * size * size * size;
+}
+
 double bench_mat_mult(int size)
 {
   Matrix *m1 = gen_mat_1(size, size, 0.0, 0.01);
   Matrix *m2 = gen_mat_1(size, size, 3.2, 0.02);
 
-  struct timeval t1;
-  struct timeval t2;
+  double t1, t2;
 
   double elapsed = 0.0;
 
-  gettimeofday(&t1, NULL);
+  t1 = get_time();
   Matrix *m3 = mat_mult(m1, m2);
-  gettimeofday(&t2, NULL);
+  t2 = get_time();
 
-  elapsed = ((double) t2.tv_sec) + ((double) t2.tv_usec) * 1e-6;
-  elapsed -= ((double) t1.tv_sec) + ((double) t1.tv_usec) * 1e-6;
+  elapsed = t2 - t1;
 
   destroy_matrix(m1);
   destroy_matrix(m2);
@@ -104,10 +116,16 @@ double bench_mat_mult(int size)
 
 int main(void)
 {
-  int N = 1200;
-  double t = bench_mat_mult(N);
+  int N;
+  double t;
+  double flops;
 
-  printf("gemm, N = %d, time: %5.3f s \n", N, t);
+  printf("N \t time (s) \t GFLOPS/s \n");
+  for (N = 100; N <= 1200; N += 40) {
+    double t = bench_mat_mult(N);
+    double flops = mat_mult_flops(N);
+    printf("%d \t %5.3f \t %5.3f \n", N, t, (flops * 1e-9) / t);
+  }
 
   return 0;
 }
