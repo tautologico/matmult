@@ -42,6 +42,11 @@ int bench_matrix_mul(int n)
     float alpha = 1.0f;
     float beta  = 0.0f;
 
+    cudaEvent_t start, stop;
+
+    cudaEventCreate(&start);
+    cudaEventCreate(&stop);
+
     a = gen_mat(n, n, 0.0, 0.5);
     if (a == NULL) {
         printf("host memory allocation failed");
@@ -92,12 +97,19 @@ int bench_matrix_mul(int n)
         return EXIT_FAILURE;
     }
 
-    // measure time
+    cudaEventRecord(start, 0);
     stat = cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, n, n, n,
                        &alpha, devPtrA, n, devPtrB, n, &beta, devPtrC, n);
-    // measure time
+    cudaEventRecord(stop, 0);
+    cudaEventSynchronize(stop);
+
     if (stat != CUBLAS_STATUS_SUCCESS) {
         printf("Error with cublasSgemm");
+    }
+    else {
+        float elapsed;
+        cudaEventElapsedTime(&elapsed, start, stop);
+        printf("gemm, N = %d, time = %5.3f ms\n", n, elapsed);
     }
 
     // getmatrix?
@@ -107,6 +119,8 @@ int bench_matrix_mul(int n)
     cudaFree (devPtrA);
     cudaFree (devPtrB);
     cudaFree (devPtrC);
+    cudaEventDestroy(start);
+    cudaEventDestroy(stop);
 
     return EXIT_SUCCESS;
 }
