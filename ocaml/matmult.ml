@@ -118,6 +118,8 @@ let () =
   Printf.printf "N \t time \t GFLOPS/s\n";
   bench_sizes low inc hi bench_mat_mult;
 
+(*
   Printf.printf "\n*** Bigarray gemm\n";
   Printf.printf "N \t time \t GFLOPS/s\n";
   bench_sizes low inc hi bench_b_mat_mult
+*)
