@@ -1,4 +1,5 @@
-FLAGS = -inline 2 -nodynlink -unsafe
+FLAGS = -inline 20 -nodynlink -unsafe
+#FLAGS=
 
 DEPS = unix,bigarray
 
